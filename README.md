@@ -21,7 +21,7 @@ the cheapest fuel/EV-charging stations along your route.
                 └──────────────┘
 ```
 
-## Data sources — and their real limitations
+## Data sources - and their real limitations
 
 | Source | What it provides | Coverage | Freshness |
 |---|---|---|---|
@@ -38,7 +38,7 @@ priced against official regional averages where no station-level price exists.
 Every price shown in the UI is labeled `station` or `regional_average` with its
 source and last-updated timestamp so it's never presented as something it isn't.
 The pricing layer is a pluggable `PriceProvider`/`RegionalPriceProvider`
-interface (`packages/api/src/providers/`) — swap in a paid live-pricing API
+interface (`packages/api/src/providers/`) - swap in a paid live-pricing API
 later without touching routing, spatial queries, or the frontend.
 
 ## Getting started
@@ -47,9 +47,9 @@ later without touching routing, spatial queries, or the frontend.
    ```bash
    cp .env.example .env
    ```
-   - `EIA_API_KEY` — required for US fuel prices, register free at https://www.eia.gov/opendata/register.php
-   - `NREL_API_KEY` — optional, defaults to rate-limited `DEMO_KEY`; get a free key at https://developer.nrel.gov/signup/
-   - `OCM_API_KEY` — optional, raises Open Charge Map rate limits
+   - `EIA_API_KEY` - required for US fuel prices, register free at https://www.eia.gov/opendata/register.php
+   - `NREL_API_KEY` - optional, defaults to rate-limited `DEMO_KEY`; get a free key at https://developer.nrel.gov/signup/
+   - `OCM_API_KEY` - optional, raises Open Charge Map rate limits
 
 2. Download a Photon country index (see [infra/photon/README.md](infra/photon/README.md)):
    ```bash
@@ -76,7 +76,7 @@ later without touching routing, spatial queries, or the frontend.
 The default Docker Compose setup uses **one small region** (Colorado + a
 Luxembourg-centered Open Charge Map query) so a first run is fast. Building
 full North America + Europe Valhalla tiles and Photon indexes needs **tens of
-GB of disk and 32GB+ RAM** and can take hours — expected for a production
+GB of disk and 32GB+ RAM** and can take hours - expected for a production
 deployment, not a first bring-up. To scale up:
 
 - Set `VALHALLA_REGION_PBF_URL` to a larger [Geofabrik](https://download.geofabrik.de/)
@@ -90,11 +90,11 @@ deployment, not a first bring-up. To scale up:
 
 - EV routing uses Valhalla's `auto` costing profile with EV-friendly tuning,
   not a full range-aware costing model with charging-stop injection (documented
-  follow-up — Valhalla's native EV costing is still evolving upstream)
+  follow-up - Valhalla's native EV costing is still evolving upstream)
 - Fuel prices are regional averages except where an EV operator publishes a
   real per-station rate
 - The EU Oil Bulletin ingester parses a public spreadsheet whose internal
-  layout isn't versioned — if it starts returning 0 rows, the parser in
+  layout isn't versioned - if it starts returning 0 rows, the parser in
   `packages/api/src/providers/euOilBulletin.ts` likely needs a layout update
 
 ## Repo layout
