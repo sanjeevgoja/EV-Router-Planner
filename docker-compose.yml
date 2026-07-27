@@ -1,0 +1,65 @@
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evrouter}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evrouter}
+      POSTGRES_DB: ${POSTGRES_DB:-evrouter}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evrouter}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  valhalla:
+    image: ghcr.io/valhalla/valhalla:latest
+    entrypoint: ["/bin/bash", "/scripts/build_tiles.sh"]
+    environment:
+      VALHALLA_REGION_PBF_URL: ${VALHALLA_REGION_PBF_URL}
+    volumes:
+      - ./infra/valhalla/build_tiles.sh:/scripts/build_tiles.sh:ro
+      - valhalla_data:/data
+    ports:
+      - "8002:8002"
+
+  photon:
+    image: komoot/photon:latest
+    command: ["-cors", "-data-dir", "/photon/data"]
+    volumes:
+      - ./data/photon:/photon/data
+    ports:
+      - "2322:2322"
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      VALHALLA_URL: http://valhalla:8002
+      PHOTON_URL: http://photon:2322
+    depends_on:
+      postgis:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    env_file: .env
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+volumes:
+  pgdata:
+  valhalla_data:

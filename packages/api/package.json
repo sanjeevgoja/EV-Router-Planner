@@ -1,0 +1,33 @@
+{
+  "name": "@ev-router/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "ingest:ev": "tsx src/ingest/runOnce.ts ev",
+    "ingest:fuel": "tsx src/ingest/runOnce.ts fuel"
+  },
+  "dependencies": {
+    "@ev-router/shared": "*",
+    "@fastify/cors": "^9.0.1",
+    "@mapbox/polyline": "^1.2.1",
+    "fastify": "^4.28.1",
+    "node-cron": "^3.0.3",
+    "pg": "^8.12.0",
+    "undici": "^6.19.8",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.11",
+    "@types/pg": "^8.11.6",
+    "@types/mapbox__polyline": "^1.0.5",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.16.5",
+    "typescript": "^5.5.4"
+  }
+}
