@@ -1,57 +1,32 @@
 # EV & Fuel Router Planner
 
-A self-hosted, map-based route planner for **North America and Europe** that finds
-the cheapest fuel/EV-charging stations along your route.
+A self-hosted, map-based route planner for **North America and Europe**. Enter
+a start and destination, pick gasoline, diesel, or EV, and it plans your route
+and shows you the cheapest fuel or charging stations along the way.
 
-- **Map**: MapLibre GL JS, free vector basemap ([OpenFreeMap](https://openfreemap.org))
-- **Geocoding**: self-hosted [Photon](https://photon.komoot.io/)
-- **Routing**: self-hosted [Valhalla](https://valhalla.github.io/valhalla/)
-- **Spatial queries**: PostGIS (`ST_DWithin`, geography distance, GIST indexes)
-- **Pricing/station data**: real open APIs, ingested on a schedule (see below)
-
-```
-┌─────────┐     ┌──────────────┐      ┌───────────────────────┐
-│  web    │────▶│  api         │────▶│ postgis (stations,     │
-│ (React, │     │ (Fastify TS) │      │ prices, spatial index) │
-│ MapLibre│     │              │      └───────────────────────┘
-│  GL JS) │     │              │────▶ valhalla (routing)
-└─────────┘     │              │────▶ photon   (geocoding)
-                │  ingest jobs │────▶ NREL AFDC / Open Charge Map /
-                │  (node-cron) │      Overpass (OSM) / EIA / EU Oil Bulletin
-                └──────────────┘
-```
-
-## Data sources - and their real limitations
-
-| Source | What it provides | Coverage | Freshness |
-|---|---|---|---|
-| [NREL AFDC](https://developer.nrel.gov/docs/transportation/alt-fuel-stations-v1/) | EV charging station locations, connectors, network | US, Canada, Mexico | Live registry, refreshed hourly by this app |
-| [Open Charge Map](https://openchargemap.org/site/develop/api) | EV charging stations + best-effort operator pricing text | Global (strong EU coverage) | Live registry, refreshed hourly |
-| [OpenStreetMap Overpass API](https://overpass-api.de/) | Real gas/diesel station **locations** (`amenity=fuel`) | Global | Refreshed hourly |
-| [EIA Open Data v2](https://www.eia.gov/opendata/) | Regional average gasoline/diesel prices (by PADD) | US only | Official weekly average |
-| [EU Weekly Oil Bulletin](https://energy.ec.europa.eu/) | Regional average fuel prices per member state | EU | Official weekly average |
-
-**Important honesty note:** there is no free, public, per-station real-time fuel
-price feed (services like GasBuddy are commercial/licensed). This project uses
-the best legitimately-free sources: real station *locations* from OSM/NREL/OCM,
-priced against official regional averages where no station-level price exists.
-Every price shown in the UI is labeled `station` or `regional_average` with its
-source and last-updated timestamp so it's never presented as something it isn't.
-The pricing layer is a pluggable `PriceProvider`/`RegionalPriceProvider`
-interface (`packages/api/src/providers/`) - swap in a paid live-pricing API
-later without touching routing, spatial queries, or the frontend.
+Prices are always labeled with where they came from and how fresh they are -
+either a real station-level price or an official regional average - so you
+always know what you're looking at. (No source publishes free, real-time,
+per-station prices everywhere, so this project uses the best legitimately-free
+data available. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full breakdown
+of data sources.)
 
 ## Getting started
 
-1. Copy the env template and fill in free API keys:
+Everything runs locally via Docker - no data leaves your machine except calls
+to the free public APIs below.
+
+1. **Get your free API keys and set up your environment file:**
    ```bash
    cp .env.example .env
    ```
+   Then edit `.env` and fill in:
    - `EIA_API_KEY` - required for US fuel prices, register free at https://www.eia.gov/opendata/register.php
    - `NREL_API_KEY` - optional, defaults to rate-limited `DEMO_KEY`; get a free key at https://developer.nrel.gov/signup/
    - `OCM_API_KEY` - optional, raises Open Charge Map rate limits
 
-2. Download a Photon country index (see [infra/photon/README.md](infra/photon/README.md)):
+2. **Download a map search index** (see [infra/photon/README.md](infra/photon/README.md)
+   for other countries):
    ```bash
    mkdir -p data/photon
    curl -o data/photon/photon-db-us.tar.bz2 \
@@ -59,52 +34,39 @@ later without touching routing, spatial queries, or the frontend.
    tar -xjf data/photon/photon-db-us.tar.bz2 -C data/photon --strip-components=1
    ```
 
-3. Bring up the stack:
+3. **Start everything:**
    ```bash
    docker compose up --build
    ```
-   First boot downloads the demo-region OSM extract and builds Valhalla tiles
-   (a few minutes for the default Colorado extract). Station/price ingestion
-   kicks off automatically ~5 seconds after the API boots, then hourly (stations)
-   and daily (regional prices) after that.
+   The first boot takes a few minutes - it downloads a demo map region
+   (Colorado, by default) and builds the routing engine's map tiles. Station
+   and price data starts loading automatically about 5 seconds after the app
+   is up, refreshing hourly (stations) and daily (prices) after that.
 
-4. Open http://localhost:5173, search a from/to within the demo region
-   (Colorado, US by default), pick gasoline/diesel/EV, and plan a route.
+4. **Open the app:** go to <http://localhost:5173>, search a start and
+   destination within the demo region (Colorado, US by default), choose
+   gasoline, diesel, or EV, and plan your route.
 
-## Scaling beyond the demo region
+## Covering more than the demo region
 
-The default Docker Compose setup uses **one small region** (Colorado + a
-Luxembourg-centered Open Charge Map query) so a first run is fast. Building
-full North America + Europe Valhalla tiles and Photon indexes needs **tens of
-GB of disk and 32GB+ RAM** and can take hours - expected for a production
-deployment, not a first bring-up. To scale up:
+By default the app only covers a small demo area (Colorado, plus a small EV
+test area in Luxembourg) so your first run is fast. Covering all of North
+America and Europe needs tens of GB of disk space and 32GB+ of RAM, and can
+take hours to set up - worth it once you're ready to actually use the app day
+to day, but not something you need for a first look. See
+[ARCHITECTURE.md](ARCHITECTURE.md#scaling-beyond-the-demo-region) for how to
+expand coverage.
 
-- Set `VALHALLA_REGION_PBF_URL` to a larger [Geofabrik](https://download.geofabrik.de/)
-  extract (a full continent, or Europe/North America combined via a merge step)
-- Download additional [Photon country indexes](https://github.com/komoot/photon#country-extracts)
-  for more of Europe
-- Widen `STATION_BBOX`, `STATION_BBOX_OVERPASS`, and `STATION_LATLON`/`STATION_RADIUS_KM`
-  env vars used by the ingestion providers
+## Current limitations
 
-## Known MVP limitations
+- EV routing doesn't yet account for vehicle range or plan charging stops
+  automatically - it routes like a car trip with EV-friendly preferences
+- Fuel prices are regional averages except where a station or EV network
+  publishes its own real-time rate
+- Occasionally the EU price feed changes format upstream and needs a fix on
+  our end before EU prices update again
 
-- EV routing uses Valhalla's `auto` costing profile with EV-friendly tuning,
-  not a full range-aware costing model with charging-stop injection (documented
-  follow-up - Valhalla's native EV costing is still evolving upstream)
-- Fuel prices are regional averages except where an EV operator publishes a
-  real per-station rate
-- The EU Oil Bulletin ingester parses a public spreadsheet whose internal
-  layout isn't versioned - if it starts returning 0 rows, the parser in
-  `packages/api/src/providers/euOilBulletin.ts` likely needs a layout update
+## For developers
 
-## Repo layout
-
-```
-packages/shared   shared TypeScript types (Station, RoutePlan, ...)
-packages/api      Fastify API: geocode/route proxies, PostGIS spatial queries,
-                  pricing provider adapters, scheduled ingestion jobs
-packages/web      Vite + React + MapLibre GL JS frontend
-db/init           PostGIS schema
-infra/valhalla    tile-build entrypoint script
-infra/photon      instructions for prebuilt search indexes
-```
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the system diagram, data source
+details, repo layout, and known technical limitations.
